@@ -1,32 +1,13 @@
 (ns toychest.minimize
   "this is intended to build up towards disciplined convex optimization"
+  (:refer-clojure :exclude [+ * - /])
+  (:use toychest.arithmetic)
+  (:require [toychest.matrix-utils :as matrix] )
   (:import [org.ejml.simple SimpleMatrix]
            [org.ejml.data DenseMatrix64F]
            [org.ejml.factory SingularValueDecomposition]
            [org.ejml.factory DecompositionFactory]
-
            [org.ejml.alg.dense.decomposition.chol CholeskyDecompositionInner]))
-
-(defn row [coll]
-  (->> [coll]
-       (map double-array)
-       into-array
-       SimpleMatrix.))
-
-(defn column [coll]
-  (->> coll
-       row
-       .transpose))
-
-(defn unit-norm [col-vector]
-  (let [norm (.normF col-vector)]
-    (.divide col-vector norm)))
-
-(defn matrix [seq-of-seqs]
-  (->> seq-of-seqs
-       (map double-array)
-       into-array
-       SimpleMatrix.))
 
 ;; basis : a fn which produces an infinite seq?
 
@@ -46,15 +27,6 @@
            (map * (take dim weights))
            (reduce +)))))
 
-
-(defn light-diag-inverse!
-  "given a diagonal matrix,
-   give the 'inverse' matrix via pointwise inverting its vals"
-  [^SimpleMatrix X]
-  (doseq [i (range (min (.numRows X) (.numCols X)))]
-    (let [present-val (.get X i i)]
-      (.set X i i (/ 1.0 present-val))))
-  X)
 
 (defn lsq [X y]
   "given NxD matrix X and Nx1 col vector y
@@ -80,7 +52,7 @@
         [u w v]  [(SimpleMatrix. (.getU svd nil true))
                   (SimpleMatrix. (.getW svd nil))
                   (SimpleMatrix. (.getV svd nil false))]
-        w+ (light-diag-inverse! w)
+        w+ (matrix/light-diag-inverse w)
         ;; u and v are orth matrices; w is diag
         b-hat (.mult v (.mult (.transpose w+) (.mult u y)))]
     b-hat
@@ -133,21 +105,58 @@
   (let [diff (.minus l r)]
     (.dot diff diff)))
 
-(defn delta [n i ep]
-  (let [before (repeat i 0)
-        after (repeat (- n i 1) 0)]
-    (column (concat before [ep] after))))
+
+(comment
+  "Autodiff using dual numbers?
+
+  -- dual numbers introduce a new arithmetic
+
+  -- in scala I would do dual number arithmetic with operator
+     overloading, and then have functions accept a type parameter, so
+     you could apply to either normal numbers (or vectors) or to dual
+     numbers
+
+  -- in clojure, operators can't dispatch on type of args, so while
+     you can replace '+' (by explicitly not loading the core version,
+     you can't def one function and vary what kind of number you give
+     it (and what kind of arithmetic gets used)
+
+  -- you could *always* used dual numbers -- but if you will sometimes
+     be evaluating the fn without also evaluating the
+     derivative/gradient (as during the line-search portion of QN),
+     you'd be wasting effort [is this a premature optimization
+     concern?]
+
+  -- you could explicitly pass around an arithmetic?
+")
 
 (defn gradient-minimize
   "given a function, and its gradient function, and a start point, for
-  a max of
-"
+  a max of max-iters steps, walk downhill"
   [f0 f1 x0 & [max-iters]]
   (loop [x x0 iters 0]
     (let [f0x (f0 x)
           f1x (f1 x)
-          xnext (.plus x (.scale f1x (/ -1 (inc iters))))]
+          scaled  (matrix/scale f1x (/ -1 (inc iters)))
+          xnext (+ x scaled)]
       (if (and (< iters (or max-iters 100))
                (> (l2 x xnext) 10e-9))
         (recur xnext (inc iters))
         x))))
+
+(defn line-search
+  "given a function f : R^n => R and a point x in R^n, and a vector,
+  find a reasonable step along p away from x which appropriately
+  reduces f(x + c * p) relative to f(x)"
+  [f x p]
+  nil)
+
+(defn quasi-netwon-minimize
+  "probably bfgs or similar; attempt to approximate hessian to take
+  steps in a better direction than steepest decent"
+  [f0 f1 x0 & [max-iters]]
+  nil)
+
+(defn dual-minimize
+  ""
+  [])
