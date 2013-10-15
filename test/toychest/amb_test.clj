@@ -38,7 +38,7 @@
                             [b1 b2 b3]
                             [c1 c2 c3]]))))))
 
-// adapted from SICP
+;; adapted from SICP
 (deftest multiple-dwelling-test
   (is (= "baker 3 cooper 2 fletcher 4 miller 5 smith 1" 
          (first (amb-let [baker (amb [1 2 3 4 5])
@@ -74,7 +74,7 @@
                                                           (= (- i j) (- (qs j) (qs i)))))))]
                              [qs])))))
 
-// http://en.wikipedia.org/wiki/Einstein%27s_puzzle
+;; http://en.wikipedia.org/wiki/Einstein%27s_puzzle
 (def einstein-puzzle
   (let [nationalities  #{:english :spanish :ukranian :japanese :norwegian}
         color #{:red :green :ivory :yellow :blue}
